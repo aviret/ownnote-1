@@ -26,7 +26,7 @@ use \OCP\AppFramework\Db\Entity;
 
 /**
  * @method integer getId()
- * @method void setId(integer $value)
+ * @method void setId($value)
  * @method void setName(string $value)
  * @method string getName()
  * @method void setGrouping(string $value)

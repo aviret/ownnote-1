@@ -24,7 +24,10 @@
 namespace OCA\OwnNote\Controller;
 
 use OC\User\Manager;
+use OCA\OwnNote\Service\OwnNoteGroupService;
+use OCA\OwnNote\Service\OwnNoteService;
 use \OCP\AppFramework\ApiController;
+use \OCP\App;
 use OCP\IConfig;
 use OCP\ILogger;
 use \OCP\IRequest;
@@ -35,11 +38,18 @@ class OwnnoteApiController extends ApiController {
 
 	private $backend;
 	private $config;
+	private $noteService;
+	private $noteGroupService;
+	private $uid;
 
-	public function __construct($appName, IRequest $request, ILogger $logger, IConfig $config){
+	public function __construct($appName, IRequest $request, ILogger $logger, IConfig $config, OwnNoteService $noteService, OwnNoteGroupService $groupService){
 		parent::__construct($appName, $request);
 		$this->backend = new Backend($config);
 		$this->config = $config;
+		$this->appName = $appName;
+		$this->noteService = $noteService;
+		$this->noteGroupService = $groupService;
+		$this->uid = \OC::$server->getUserSession()->getUser()->getUID();
 	}
 
 	/**
@@ -51,8 +61,8 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function index() {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		return $this->backend->getListing($FOLDER, false);
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		return $this->noteService->getListing($FOLDER, false);
 	}
 
 	/**
@@ -60,8 +70,8 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function mobileindex() {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		return $this->backend->getListing($FOLDER, true);
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		return $this->noteService->getListing($FOLDER, true);
 	}
 
 	/**
@@ -69,8 +79,8 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function remoteindex() {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		return json_encode($this->backend->getListing($FOLDER, true));
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		return $this->noteService->getListing($FOLDER, true);
 	}
 
 	/**
@@ -78,9 +88,14 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function create($name, $group) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		if (isset($name) && isset($group))
-			return $this->backend->createNote($FOLDER, $name, $group);
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		if (isset($name) && isset($group)) {
+			$note = [
+				'name' => $name,
+				'group' => $group
+			];
+			return $this->noteService->create($FOLDER, $note, $this->uid);
+		}
 	}
 
 	/**
@@ -88,9 +103,9 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function del($nid) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($nid))
-			return $this->backend->deleteNote($FOLDER, $nid);
+			return $this->noteService->delete($FOLDER, $nid);
 	}
 
 	/**
@@ -99,7 +114,11 @@ class OwnnoteApiController extends ApiController {
 	*/
 	public function edit($id) {
 		if (isset($id)) {
-			return $this->backend->editNote($id);
+			/**
+			 * @param OwnNote $note
+			 */
+			$note = $this->noteService->find($id);
+			return $note->getNote();
 		}
 	}
 
@@ -108,9 +127,16 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function save($id, $content) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		if (isset($id) && isset($content))
-			return $this->backend->saveNote($FOLDER, $id, $content, 0);
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		if (isset($id) && isset($content)) {
+			$note = [
+				'id' => $id,
+				'note' => $content,
+				'mtime' => time()
+			];
+
+			return ($this->noteService->update($FOLDER, $note));
+		}
 	}
 
 	/**
@@ -118,9 +144,9 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function ren($id, $newname, $newgroup) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($id) && isset($newname) && isset($newgroup))
-			return $this->backend->renameNote($FOLDER, $id, $newname, $newgroup);
+			return $this->noteService->renameNote($FOLDER, $id, $newname, $newgroup);
 	}
 
 	/**
@@ -128,9 +154,9 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function delgroup($group) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($group))
-			return $this->backend->deleteGroup($FOLDER, $group);
+			return $this->noteGroupService->deleteGroup($FOLDER, $group);
 	}
 
 	/**
@@ -138,9 +164,9 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function rengroup($group, $newgroup) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($group) && isset($newgroup))
-			return $this->backend->renameGroup($FOLDER, $group, $newgroup);
+			return $this->noteGroupService->renameGroup($FOLDER, $group, $newgroup);
 	}
 
 	/**
@@ -148,6 +174,7 @@ class OwnnoteApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function version() {
-		return $this->backend->getVersion();
+		$AppInstance = new App();
+		return $AppInstance->getAppInfo($this->appName)["version"];
 	}
 }

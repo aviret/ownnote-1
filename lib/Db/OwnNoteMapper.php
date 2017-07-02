@@ -40,7 +40,7 @@ class OwnNoteMapper extends Mapper {
 	/**
 	 * @param $note_id
 	 * @param null $user_id
-	 * @return OwnNote[] if not found
+	 * @return OwnNote if not found
 	 */
 	public function find($note_id, $user_id = null) {
 		$params = [$note_id];
@@ -49,8 +49,20 @@ class OwnNoteMapper extends Mapper {
 			$params[] = $user_id;
 			$uidSql = 'and n.uid = ?';
 		}
-		$sql = "SELECT n.id, n.name, n.grouping, n.shared, n.mtime, n.deleted, p.pid, GROUP_CONCAT(p.note SEPARATOR '') as note FROM *PREFIX*ownnote n INNER JOIN *PREFIX*ownnote_parts p ON n.id = p.id WHERE `id`= ? $uidSql and n.deleted = 0 GROUP BY p.id";
-		return $this->findEntities($sql, $params);
+		$sql = "SELECT n.id, n.uid, n.name, n.grouping, n.shared, n.mtime, n.deleted, p.pid, GROUP_CONCAT(p.note SEPARATOR '') as note FROM *PREFIX*ownnote n INNER JOIN *PREFIX*ownnote_parts p ON n.id = p.id WHERE n.id= ? $uidSql and n.deleted = 0 GROUP BY p.id";
+		$results = [];
+		foreach($this->execute($sql, $params)->fetchAll() as $item){
+			$note = new OwnNote();
+			$note->setId($item['id']);
+			$note->setName($item['name']);
+			$note->setGrouping($item['grouping']);
+			$note->setMtime($item['mtime']);
+			$note->setDeleted($item['deleted']);
+			$note->setNote($item['note']);
+			$note->setUid($item['uid']);
+			$results[] = $note;
+		}
+		return array_shift($results);
 	}
 
 
@@ -62,6 +74,33 @@ class OwnNoteMapper extends Mapper {
 	public function findNotesFromUser($userId) {
 		$params = [$userId];
 		$sql = "SELECT n.uid, n.id, n.name, n.grouping, n.shared, n.mtime, n.deleted, p.pid, GROUP_CONCAT(p.note SEPARATOR '') as note FROM *PREFIX*ownnote n INNER JOIN *PREFIX*ownnote_parts p ON n.id = p.id WHERE `uid` = ? and n.deleted = 0 GROUP BY p.id";
+		$results = [];
+		foreach($this->execute($sql, $params)->fetchAll() as $item){
+			$note = new OwnNote();
+			$note->setId($item['id']);
+			$note->setName($item['name']);
+			$note->setGrouping($item['grouping']);
+			$note->setMtime($item['mtime']);
+			$note->setDeleted($item['deleted']);
+			$note->setNote($item['note']);
+			$note->setUid($item['uid']);
+			$results[] = $note;
+		}
+		return $results;
+	}
+	/**
+	 * @throws \OCP\AppFramework\Db\DoesNotExistException if not found
+	 * @throws \OCP\AppFramework\Db\MultipleObjectsReturnedException if more than one result
+	 * @return OwnNote[]
+	 */
+	public function findNotesByGroup($group, $userId) {
+		$params = [$group];
+		$uidSql = '';
+		if($userId){
+			$params[] = $userId;
+			$uidSql = 'and n.uid = ?';
+		}
+		$sql = "SELECT n.uid, n.id, n.name, n.grouping, n.shared, n.mtime, n.deleted, p.pid, GROUP_CONCAT(p.note SEPARATOR '') as note FROM *PREFIX*ownnote n INNER JOIN *PREFIX*ownnote_parts p ON n.id = p.id WHERE n.deleted = 0 $uidSql and n.grouping = ? GROUP BY p.id";
 		$results = [];
 		foreach($this->execute($sql, $params)->fetchAll() as $item){
 			$note = new OwnNote();
@@ -129,7 +168,7 @@ class OwnNoteMapper extends Mapper {
 	 * @param $content
 	 */
 	public function createNotePart(OwnNote $note, $content) {
-		$sql = "INSERT INTO *PREFIX*_ownnote_parts VALUES (NULL, ?, ?);";
+		$sql = "INSERT INTO *PREFIX*ownnote_parts VALUES (NULL, ?, ?);";
 		$this->execute($sql, array($note->getId(), $content));
 	}
 
@@ -139,7 +178,7 @@ class OwnNoteMapper extends Mapper {
 	 * @param OwnNote $note
 	 */
 	public function deleteNoteParts(OwnNote $note) {
-		$sql = 'DELETE FROM *PREFIX*_ownnote_parts where id = ?';
+		$sql = 'DELETE FROM *PREFIX*ownnote_parts where id = ?';
 		$this->execute($sql, array($note->getId()));
 	}
 

@@ -24,6 +24,9 @@
 namespace OCA\OwnNote\Controller;
 
 use OC\User\Manager;
+use OCA\OwnNote\Db\OwnNote;
+use OCA\OwnNote\Service\OwnNoteGroupService;
+use OCA\OwnNote\Service\OwnNoteService;
 use \OCP\AppFramework\ApiController;
 use \OCP\AppFramework\Http\JSONResponse;
 use \OCP\AppFramework\Http\Response;
@@ -32,17 +35,23 @@ use OCP\IConfig;
 use OCP\ILogger;
 use \OCP\IRequest;
 use \OCA\OwnNote\Lib\Backend;
+use \OCP\App;
 
 
 class OwnnoteAjaxController extends ApiController {
 
 	private $backend;
 	private $config;
+	private $noteService;
+	private $uid;
+	private $noteGroupService;
 
-	public function __construct($appName, IRequest $request,ILogger $logger, IConfig $config) {
+	public function __construct($appName, IRequest $request, ILogger $logger, IConfig $config, OwnNoteService $noteService, OwnNoteGroupService $groupService) {
 		parent::__construct($appName, $request);
 		$this->config = $config;
-		$this->backend = new Backend($config);
+		$this->noteService = $noteService;
+		$this->noteGroupService = $groupService;
+		$this->uid = \OC::$server->getUserSession()->getUser()->getUID();
 	}
 
 	/**
@@ -51,10 +60,11 @@ class OwnnoteAjaxController extends ApiController {
 
 	/**
 	 * @NoAdminRequired
+	 * @NoCSRFRequired
 	 */
 	public function ajaxindex() {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		return $this->backend->getListing($FOLDER, false);
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		return $this->noteService->getListing($FOLDER, false);
 	}
 
 
@@ -62,18 +72,23 @@ class OwnnoteAjaxController extends ApiController {
 	 * @NoAdminRequired
 	 */
 	public function ajaxcreate($name, $group) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
-		if (isset($name) && isset($group))
-			return $this->backend->createNote($FOLDER, $name, $group);
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
+		if (isset($name) && isset($group)) {
+			$note = [
+				'name' => $name,
+				'group' => $group
+			];
+			return $this->noteService->create($FOLDER, $note, $this->uid);
+		}
 	}
 
 	/**
 	 * @NoAdminRequired
 	 */
 	public function ajaxdel($nid) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($nid)) {
-			return $this->backend->deleteNote($FOLDER, $nid);
+			return $this->noteService->delete($FOLDER, $nid);
 		}
 	}
 
@@ -82,7 +97,11 @@ class OwnnoteAjaxController extends ApiController {
 	 */
 	public function ajaxedit($nid) {
 		if (isset($nid)) {
-			return $this->backend->editNote($nid);
+			/**
+			 * @param OwnNote $note
+			 */
+			$note = $this->noteService->find($nid);
+			return $note->getNote();
 		}
 	}
 
@@ -90,9 +109,14 @@ class OwnnoteAjaxController extends ApiController {
 	 * @NoAdminRequired
 	 */
 	public function ajaxsave($id, $content) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($id) && isset($content)) {
-			return $this->backend->saveNote($FOLDER, $id, $content, 0);
+			$note = [
+				'id' => $id,
+				'note' => $content
+			];
+
+			return ($this->noteService->update($FOLDER, $note));
 		}
 	}
 
@@ -100,40 +124,42 @@ class OwnnoteAjaxController extends ApiController {
 	 * @NoAdminRequired
 	 */
 	public function ajaxren($id, $newname, $newgroup) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($id) && isset($newname) && isset($newgroup))
-			return $this->backend->renameNote($FOLDER, $id, $newname, $newgroup);
+			return $this->noteService->renameNote($FOLDER, $id, $newname, $newgroup, $this->uid);
 	}
 
 	/**
 	 * @NoAdminRequired
 	 */
 	public function ajaxdelgroup($group) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($group))
-			return $this->backend->deleteGroup($FOLDER, $group);
+			return $this->noteGroupService->deleteGroup($FOLDER, $group);
 	}
 
 	/**
 	 * @NoAdminRequired
 	 */
 	public function ajaxrengroup($group, $newgroup) {
-		$FOLDER = $this->config->getAppValue('ownnote', 'folder', '');
+		$FOLDER = $this->config->getAppValue($this->appName, 'folder', '');
 		if (isset($group) && isset($newgroup))
-			return $this->backend->renameGroup($FOLDER, $group, $newgroup);
+			return $this->noteGroupService->renameGroup($FOLDER, $group, $newgroup);
 	}
 
 	/**
 	 * @NoAdminRequired
 	 */
 	public function ajaxversion() {
-		return $this->backend->getVersion();
+		$AppInstance = new App();
+		return $AppInstance->getAppInfo($this->appName)["version"];
 	}
 
 	/**
 	 */
 	public function ajaxsetval($field, $value) {
-		return $this->backend->setAdminVal($field, $value);
+		$this->config->setAppValue($this->appName, $field, $value);
+		return true;
 	}
 
 	/**
@@ -141,6 +167,6 @@ class OwnnoteAjaxController extends ApiController {
 	 * @NoCSRFRequired
 	 */
 	public function ajaxgetsharemode() {
-		return $this->config->getAppValue('ownnote', 'sharemode', '');
+		return $this->config->getAppValue($this->appName, 'sharemode', '');
 	}
 }

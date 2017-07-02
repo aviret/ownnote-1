@@ -60,18 +60,18 @@ class OwnNoteService {
 	 *
 	 * @param $note_id
 	 * @param $user_id
-	 * @return OwnNote[]
+	 * @return OwnNote
 	 * @internal param $vault_id
 	 */
 	public function find($note_id, $user_id = null) {
-		$vault = $this->noteMapper->find($note_id, $user_id);
-		return $vault;
+		$note = $this->noteMapper->find($note_id, $user_id);
+		return $note;
 	}
 
 	/**
 	 * Creates a note
 	 *
-	 * @param array $note
+	 * @param array|OwnNote $note
 	 * @param $userId
 	 * @return OwnNote
 	 * @throws \Exception
@@ -82,15 +82,15 @@ class OwnNoteService {
 			$entity->setName($note['name']);
 			$entity->setUid($userId);
 			$entity->setGrouping($note['group']);
-			$entity->setNote($note['note']);
-			if($note['mtime']) {
+			$entity->setNote($note['note'] ? $note['note'] : '');
+			if ($note['mtime']) {
 				$entity->setMtime($note['mtime']);
 			} else {
 				$entity->setMtime(time());
 			}
 			$note = $entity;
 		}
-		if (!is_a($note, 'OwnNote')) {
+		if (!$note instanceof OwnNote) {
 			throw new \Exception("Expected OwnNote object!");
 		}
 
@@ -98,7 +98,7 @@ class OwnNoteService {
 		$name = $note->getName();
 		$content = $note->getNote();
 
-		if ($FOLDER != '') {
+		if ($FOLDER != '' && $name) {
 			$tmpfile = $FOLDER . "/" . $name . ".htm";
 			if ($group != '')
 				$tmpfile = $FOLDER . "/[" . $group . "] " . $name . ".htm";
@@ -114,32 +114,45 @@ class OwnNoteService {
 	/**
 	 * Update vault
 	 *
+	 * @param $FOLDER
 	 * @param $note
-	 * @param $userId
-	 * @return OwnNote
+	 * @return OwnNote|bool
 	 * @throws \Exception
+	 * @internal param $userId
 	 * @internal param $vault
 	 */
 	public function update($FOLDER, $note) {
+
 		if (is_array($note)) {
-			$entity = new OwnNote();
-			$entity->setId($note['id']);
-			$entity->setName($note['name']);
-			$entity->setGrouping($note['group']);
-			$entity->setNote($note['note']);
-			if($note['mtime']) {
+			$entity = $this->find($note['id']);
+			if(!$entity){
+				$entity = new OwnNote();
+			}
+			if (isset($note['name'])) {
+				$entity->setName($note['name']);
+			}
+			if(isset($note['group']) || $note['group']) {
+				$entity->setGrouping($note['group']);
+			}
+
+			if (isset($note['note'])) {
+				$entity->setNote($note['note']);
+			}
+			if (isset($note['mtime'])) {
 				$entity->setMtime($note['mtime']);
 			}
 			$note = $entity;
 		}
-		if (!is_a($note, 'OwnNote')) {
+		if (!$note instanceof OwnNote) {
 			throw new \Exception("Expected OwnNote object!");
 		}
 		$group = $note->getGrouping();
 		$name = $note->getName();
 		$content = $note->getNote();
-
-		if ($FOLDER != '') {
+//		if (!$this->checkPermissions(\OCP\Constants::PERMISSION_UPDATE, $note->getId())) {
+//			return false;
+//		}
+		if ($FOLDER != '' && $name) {
 			$tmpfile = $FOLDER . "/" . $name . ".htm";
 			if ($group != '')
 				$tmpfile = $FOLDER . "/[" . $group . "] " . $name . ".htm";
@@ -148,10 +161,28 @@ class OwnNoteService {
 				$note->setMtime($info['mtime']);
 			}
 		}
-
+		if(!$note->getId()){
+			return $this->noteMapper->create($note);
+		}
 		return $this->noteMapper->updateNote($note);
 	}
 
+	public function renameNote($FOLDER, $id, $in_newname, $in_newgroup, $uid = null) {
+		$newname = str_replace("\\", "-", str_replace("/", "-", $in_newname));
+		$newgroup = str_replace("\\", "-", str_replace("/", "-", $in_newgroup));
+
+		// We actually need to delete and create so that the delete flag exists for syncing clients
+		$note = $this->find($id);
+		$arr = $note->jsonSerialize();
+		if($note->getName() != $newname || $note->getGrouping() != $newgroup) {
+			$arr['name'] = $newname;
+			$arr['group'] = $newgroup;
+			$this->delete($FOLDER, $note->getId());
+		}
+		$this->update($FOLDER, $arr);
+
+		return true;
+	}
 
 	/**
 	 * Delete a vault from user
@@ -162,6 +193,10 @@ class OwnNoteService {
 	 * @internal param string $vault_guid
 	 */
 	public function delete($FOLDER, $note_id, $user_id = null) {
+		if (!$this->checkPermissions(\OCP\Constants::PERMISSION_DELETE, $note_id)) {
+			return false;
+		}
+
 		$note = $this->noteMapper->find($note_id, $user_id);
 		if ($note instanceof OwnNote) {
 			$group = $note->getGrouping();
@@ -180,6 +215,27 @@ class OwnNoteService {
 		}
 	}
 
+	/**
+	 * @param $FOLDER
+	 * @param OwnNote $note
+	 */
+	public function removeFile($FOLDER, $note){
+		$group = $note->getGrouping();
+		$name = $note->getName();
+		if ($FOLDER != '') {
+			$tmpfile = $FOLDER . "/" . $name . ".htm";
+			if ($group != '')
+				$tmpfile = $FOLDER . "/[" . $group . "] " . $name . ".htm";
+			if (Filesystem::file_exists($tmpfile))
+				Filesystem::unlink($tmpfile);
+		}
+	}
+
+	/**
+	 * @param $FOLDER
+	 * @param $showdel
+	 * @return array
+	 */
 	public function getListing($FOLDER, $showdel) {
 		// Get the listing from the database
 		$requery = false;
@@ -209,7 +265,7 @@ class OwnNoteService {
 							$delid = $result->getId();
 						}
 						if ($delid != -1) {
-							$this->delete('',$delid);
+							$this->delete('', $delid);
 							$requery = true;
 						}
 					}
@@ -278,7 +334,7 @@ class OwnNoteService {
 												'mtime' => $info['mtime'],
 												'note' => $html
 											];
-											$this->update('',$n);
+											$this->update('', $n);
 											$requery = true;
 										}
 									}
@@ -328,7 +384,7 @@ class OwnNoteService {
 							}
 						}
 						if (!$filefound) {
-							$this->update($FOLDER,$result);
+							$this->update($FOLDER, $result);
 						}
 					}
 				}
@@ -364,5 +420,20 @@ class OwnNoteService {
 			}
 		}
 		return $farray;
+	}
+
+	private function checkPermissions($permission, $nid) {
+		// gather information
+		$uid = \OC::$server->getUserSession()->getUser()->getUID();
+		$note = $this->find($nid);
+		// owner is allowed to change everything
+		$u = $note->getUid();
+		if (!isset($u) || $uid === $note->getUid()) {
+			return true;
+		}
+
+		// check share permissions
+		$shared_note = \OCP\Share::getItemSharedWith('ownnote', $nid, 'populated_shares')[0];
+		return $shared_note['permissions'] & $permission;
 	}
 }
