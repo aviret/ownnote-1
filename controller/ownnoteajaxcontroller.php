@@ -50,6 +50,7 @@ class OwnnoteAjaxController extends ApiController {
 		parent::__construct($appName, $request);
 		$this->config = $config;
 		$this->noteService = $noteService;
+		$this->backend = new Backend($config);
 		$this->noteGroupService = $groupService;
 		$this->uid = \OC::$server->getUserSession()->getUser()->getUID();
 	}
@@ -101,7 +102,10 @@ class OwnnoteAjaxController extends ApiController {
 			 * @param OwnNote $note
 			 */
 			$note = $this->noteService->find($nid);
-			return $note->getNote();
+			if($note) {
+				return $note->getNote();
+			}
+			return '';
 		}
 	}
 

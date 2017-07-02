@@ -52,6 +52,7 @@ class OwnNoteService {
 	 * @return OwnNote[]
 	 */
 	public function findNotesFromUser($userId) {
+		// Get shares
 		return $this->noteMapper->findNotesFromUser($userId);
 	}
 
@@ -135,7 +136,7 @@ class OwnNoteService {
 				$entity->setGrouping($note['group']);
 			}
 
-			if (isset($note['note'])) {
+			if (isset($note['note']) || $note['note'] == '') {
 				$entity->setNote($note['note']);
 			}
 			if (isset($note['mtime'])) {
@@ -240,29 +241,37 @@ class OwnNoteService {
 		// Get the listing from the database
 		$requery = false;
 		$uid = \OC::$server->getUserSession()->getUser()->getUID();
+		$shared_items = \OCP\Share::getItemsSharedWith('ownnote', 'populated_shares');
 		/**
 		 * @var $results OwnNote[]
 		 */
-		$results = $this->findNotesFromUser($uid);
+		$results = array_merge($this->findNotesFromUser($uid), $shared_items);
 
 		$results2 = $results;
 		if ($results)
 			foreach ($results as $result) {
+				if($result instanceof OwnNote) {
+					$result = $result->jsonSerialize();
+				}
+
 				foreach ($results2 as $result2) {
-					if ($result->getId() != $result2->getId() && $result->getName() == $result2->getName() && $result->getGrouping() == $result2->getGrouping()) {
+					if($result2 instanceof OwnNote) {
+						$result2 = $result2->jsonSerialize();
+					}
+					if ($result['id'] != $result2['id'] && $result['name'] == $result2['name'] && $result['grouping'] == $result2['grouping']) {
 						// We have a duplicate that should not exist. Need to remove the offending record first
 						$delid = -1;
-						if ($result->getMtime() == $result2->getMtime()) {
+						if ($result['mtime'] == $result2['mtime']) {
 							// If the mtime's match, delete the oldest ID.
-							$delid = $result->getId();
-							if ($result->getId() > $result2->getId())
-								$delid = $result2->getId();
-						} elseif ($result->getMtime() > $result2->getMtime()) {
+							$delid = $result['id'];
+							if ($result['id'] > $result2['id'])
+								$delid = $result2['id'];
+						} elseif ($result['mtime'] > $result2['mtime']) {
 							// Again, delete the oldest
-							$delid = $result2->getId();
-						} elseif ($result->getMtime() < $result2->getMtime()) {
+							$delid = $result2['id'];
+						} elseif ($result['mtime'] < $result2['mtime']) {
 							// The only thing left is if result is older
-							$delid = $result->getId();
+							$delid = $result['id'];
 						}
 						if ($delid != -1) {
 							$this->delete('', $delid);
@@ -272,9 +281,11 @@ class OwnNoteService {
 				}
 			}
 		if ($requery) {
-			$results = $this->findNotesFromUser($uid);
+			$shared_items = \OCP\Share::getItemsSharedWith('ownnote', 'populated_shares');
+			$results = array_merge($this->findNotesFromUser($uid), $shared_items);
 			$requery = false;
 		}
+
 		// Tests to add a bunch of notes
 		//$now = new DateTime();
 		//for ($x = 0; $x < 199; $x++) {
@@ -321,18 +332,21 @@ class OwnNoteService {
 						$fileindb = false;
 						if ($results)
 							foreach ($results as $result) {
-								if ($result->getDeleted() == 0)
-									if ($name == $result->getName() && $group == $result->getGrouping()) {
+								if($result instanceof OwnNote) {
+									$result = $result->jsonSerialize();
+								}
+								if ($result['deleted'] == 0)
+									if ($name == $result['name'] && $group == $result['grouping']) {
 										$fileindb = true;
 										// If it is in the DB, check if the filesystem file is newer than the DB
-										if ($result->getMtime() < $info['mtime']) {
+										if ($result['mtime'] < $info['mtime']) {
 											// File is newer, this could happen if a user updates a file
 											$html = "";
 											$html = Filesystem::file_get_contents($FOLDER . "/" . $tmpfile);
 											$n = [
-												'id' => $result->getId(),
+												'id' => $result['id'],
 												'mtime' => $info['mtime'],
-												'note' => $html
+												'note' => ($html) ? $html : ''
 											];
 											$this->update('', $n);
 											$requery = true;
@@ -367,15 +381,19 @@ class OwnNoteService {
 				}
 			}
 			if ($requery) {
-				$results = $this->findNotesFromUser($uid);
+				$shared_items = \OCP\Share::getItemsSharedWith('ownnote', 'populated_shares');
+				$results = array_merge($this->findNotesFromUser($uid), $shared_items);
 			}
 			// Now also make sure the files exist, they may not if the user switched folders in admin.
 			if ($results)
 				foreach ($results as $result) {
-					if ($result->getDeleted() == 0) {
-						$tmpfile = $result->getName() . ".htm";
-						if ($result->getGrouping() != '')
-							$tmpfile = '[' . $result->getGrouping() . '] ' . $result->getName() . '.htm';
+					if($result instanceof OwnNote) {
+						$result = $result->jsonSerialize();
+					}
+					if ($result['deleted'] == 0) {
+						$tmpfile = $result['name'] . ".htm";
+						if ($result['grouping'] != '')
+							$tmpfile = '[' . $result['grouping'] . '] ' . $result['name'] . '.htm';
 						$filefound = false;
 						foreach ($filearr as $f) {
 							if ($f == $tmpfile) {
@@ -396,23 +414,27 @@ class OwnNoteService {
 			$filetime = new \DateTime();
 
 			foreach ($results as $result) {
-				if ($result->getDeleted() == 0 || $showdel == true) {
-					$filetime->setTimestamp($result->getMtime());
+				if($result instanceof OwnNote) {
+					$result = $result->jsonSerialize();
+				}
+				if ($result['deleted'] == 0 || $showdel == true) {
+					$filetime->setTimestamp($result['mtime']);
 					$timestring = $this->utils->getTimeString($filetime, $now);
 					$f = array();
-					$f['id'] = $result->getId();
-					$f['uid'] = $result->getUid();
-					$f['name'] = $result->getName();
-					$f['group'] = $result->getGrouping();
+					$f['id'] = $result['id'];
+					$f['uid'] = $result['uid'];
+					$f['name'] = $result['name'];
+					$f['group'] = ($result['grouping']) ? $result['grouping'] : '';
 					$f['timestring'] = $timestring;
-					$f['mtime'] = $result->getMtime();
-					$f['timediff'] = $now->getTimestamp() - $result->getMtime();
-					$f['deleted'] = $result->getDeleted();
+					$f['mtime'] = $result['mtime'];
+					$f['timediff'] = $now->getTimestamp() - $result['mtime'];
+					$f['deleted'] = $result['deleted'];
+					$f['permissions'] = @$result['permissions'];
 
 
-					$shared_with = \OCP\Share::getUsersItemShared('ownnote', $result->getId(), $result->getUid());
+					$shared_with = \OCP\Share::getUsersItemShared('ownnote', $result['id'], $result['uid']);
 					// add shares (all shares, if it's an owned note, only the user for shared notes (not disclosing other sharees))
-					$f['shared_with'] = ($result->getUid() == $uid) ? $shared_with : [$uid];
+					$f['shared_with'] = ($result['uid'] == $uid) ? $shared_with : [$uid];
 
 					$farray[$count] = $f;
 					$count++;
@@ -427,8 +449,7 @@ class OwnNoteService {
 		$uid = \OC::$server->getUserSession()->getUser()->getUID();
 		$note = $this->find($nid);
 		// owner is allowed to change everything
-		$u = $note->getUid();
-		if (!isset($u) || $uid === $note->getUid()) {
+		if ($uid === $note->getUid()) {
 			return true;
 		}
 

@@ -68,7 +68,7 @@ class OwnNote extends Entity implements  \JsonSerializable{
 			'timediff' =>  $now->getTimestamp() - $this->getMtime(),
 			'name' => $this->getName(),
 			'uid' => $this->getUid(),
-			'group' => $this->getGrouping(),
+			'group' => ($this->getGrouping()) ? $this->getGrouping() : '',
 			'note' => $this->getNote(),
 			'deleted' => $this->getDeleted(),
 		];

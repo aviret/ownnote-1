@@ -187,8 +187,8 @@ class OwnNoteMapper extends Mapper {
 	 * @return bool
 	 */
 	public function deleteNote(OwnNote $note) {
-		$note->setDeleted(1);
-		$this->updateNote($note);
+		$this->deleteNoteParts($note);
+		$this->delete($note);
 		return true;
 	}
 }
