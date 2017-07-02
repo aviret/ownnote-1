@@ -24,7 +24,6 @@
 namespace OCA\OwnNote\Utility;
 
 
-use DateTime;
 use DOMDocument;
 use OC\Files\Filesystem;
 
@@ -32,7 +31,7 @@ class Evernote {
 
 	/**
 	 * @param $folder
-	 * @param $file
+	 * @param string $file
 	 */
 	public static function checkEvernote($folder, $file) {
 		$utils = new Utils();

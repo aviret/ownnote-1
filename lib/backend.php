@@ -51,7 +51,7 @@ class Backend {
 
 	/**
 	 * @param $haystack
-	 * @param $needle
+	 * @param string $needle
 	 * @return bool
 	 */
 	public function startsWith($haystack, $needle) {
@@ -59,8 +59,8 @@ class Backend {
 	}
 
 	/**
-	 * @param $string
-	 * @param $test
+	 * @param string $string
+	 * @param string $test
 	 * @return bool
 	 */
 	public function endsWith($string, $test) {
@@ -72,7 +72,7 @@ class Backend {
 
 	/**
 	 * @param $folder
-	 * @param $file
+	 * @param string $file
 	 */
 	public function checkEvernote($folder, $file) {
 		$html = "";
@@ -122,8 +122,8 @@ class Backend {
 	}
 
 	/**
-	 * @param $filetime DateTime
-	 * @param $now DateTime
+	 * @param DateTime $filetime DateTime
+	 * @param DateTime $now DateTime
 	 * @param $l IL10N
 	 * @return mixed|string
 	 */

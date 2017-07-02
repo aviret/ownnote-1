@@ -26,10 +26,7 @@ namespace OCA\OwnNote\Service;
 use OCA\OwnNote\Db\OwnNote;
 use OCA\OwnNote\Utility\Evernote;
 use OCA\OwnNote\Utility\Utils;
-use OCP\IConfig;
-use OCP\AppFramework\Db\DoesNotExistException;
 use DateTime;
-use DOMDocument;
 use OC\Files\Filesystem;
 use OCA\OwnNote\Db\OwnNoteMapper;
 use Punic\Exception;
@@ -234,7 +231,7 @@ class OwnNoteService {
 
 	/**
 	 * @param $FOLDER
-	 * @param $showdel
+	 * @param boolean $showdel
 	 * @return array
 	 */
 	public function getListing($FOLDER, $showdel) {

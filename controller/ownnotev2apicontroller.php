@@ -23,7 +23,6 @@
 
 namespace OCA\OwnNote\Controller;
 
-use OC\User\Manager;
 use OCA\OwnNote\Service\OwnNoteService;
 use OCA\OwnNote\Utility\NotFoundJSONResponse;
 use \OCP\AppFramework\ApiController;
