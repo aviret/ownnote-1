@@ -68,4 +68,13 @@ $application->registerRoutes($this, array('routes' => array(
 	array('name' => 'ownnote_api#rengroup', 'url' => '/api/v0.2/ownnote/rengroup', 'verb' => 'POST'),
 	array('name' => 'ownnote_ajax#ajaxrengroup', 'url' => '/ajax/v0.2/ownnote/ajaxrengroup', 'verb' => 'POST'),
     array('name' => 'ownnote_api#preflighted_cors', 'url' => '/api/v0.2/{path}', 'verb' => 'OPTIONS', 'requirements' => array('path' => '.+')),
+
+	// V2.0 API
+	array('name' => 'ownnotev2_api#preflighted_cors', 'url' => '/api/v2.0/{path}', 'verb' => 'OPTIONS', 'requirements' => array('path' => '.+')),
+	array('name' => 'ownnotev2_api#index', 'url' => '/api/v2.0/ownnote', 'verb' => 'GET'),
+	array('name' => 'ownnotev2_api#create', 'url' => '/api/v2.0/ownnote', 'verb' => 'POST'),
+	array('name' => 'ownnotev2_api#get', 'url' => '/api/v2.0/ownnote/{id}', 'verb' => 'GET'),
+	array('name' => 'ownnotev2_api#update', 'url' => '/api/v2.0/ownnote/{id}', 'verb' => 'PATCH'),
+	array('name' => 'ownnotev2_api#delete', 'url' => '/api/v2.0/ownnote/{id}', 'verb' => 'DELETE'),
+
 )));

@@ -29,22 +29,16 @@ use \OCP\AppFramework\Db\Entity;
  * @method void setId(integer $value)
  * @method void setName(string $value)
  * @method string getName()
- * @method void setGuid(string $value)
- * @method string getGuid()
- * @method void setUserId(string $value)
- * @method string getUserId()
- * @method void setCreated(integer $value)
- * @method integer getCreated()
- * @method void setLastAccess(integer $value)
- * @method integer getLastAccess()
- * @method void setPublicSharingKey(string $value)
- * @method string getPublicSharingKey()
- * @method void setPrivateSharingKey(string $value)
- * @method string getPrivateSharingKey()
- * @method void setSharingKeysGenerated(integer $value)
- * @method integer getSharingKeysGenerated()
- * @method void setVaultSettings(string $value)
- * @method string getVaultSettings()
+ * @method void setGrouping(string $value)
+ * @method string getGrouping()
+ * @method void setUid(string $value)
+ * @method string getNote()
+ * @method void setNote(string $value)
+ * @method string getUid()
+ * @method void setMtime(integer $value)
+ * @method integer getMtime()
+ * @method void setDeleted(integer $value)
+ * @method integer getDeleted()
  */
 
 
@@ -52,33 +46,31 @@ class OwnNote extends Entity implements  \JsonSerializable{
 
 	use EntityJSONSerializer;
 
-	protected $guid;
 	protected $name;
-	protected $userId;
-	protected $created;
-	protected $lastAccess;
-	protected $publicSharingKey;
-	protected $privateSharingKey;
-	protected $sharingKeysGenerated;
-	protected $vaultSettings;
+	protected $grouping;
+	protected $uid;
+	protected $mtime;
+	protected $deleted;
+	protected $note;
 	
 	public function __construct() {
 		// add types in constructor
-		$this->addType('created', 'integer');
-		$this->addType('lastAccess', 'integer');
-		$this->addType('sharingKeysGenerated', 'integer');
+		$this->addType('mtime', 'integer');
 	}
 	/**
 	 * Turns entity attributes into an array
 	 */
 	public function jsonSerialize() {
+		$now = new \DateTime();
 		return [
-			'vault_id' => $this->getId(),
-			'guid' => $this->getGuid(),
+			'id' => $this->getId(),
+			'mtime' => $this->getMtime(),
+			'timediff' =>  $now->getTimestamp() - $this->getMtime(),
 			'name' => $this->getName(),
-			'created' => $this->getCreated(),
-			'public_sharing_key' => $this->getPublicSharingKey(),
-			'last_access' => $this->getlastAccess(),
+			'uid' => $this->getUid(),
+			'group' => $this->getGrouping(),
+			'note' => $this->getNote(),
+			'deleted' => $this->getDeleted(),
 		];
 	}
 }

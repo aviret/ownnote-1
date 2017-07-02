@@ -23,89 +23,133 @@
 
 namespace OCA\OwnNote\Db;
 
-use OCA\Passman\Utility\Utils;
+use \OCA\OwnNote\Utility\Utils;
+use OCP\AppFramework\Db\Entity;
 use OCP\IDBConnection;
 use OCP\AppFramework\Db\Mapper;
 
 class OwnNoteMapper extends Mapper {
 	private $utils;
-	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'passman_vaults');
+
+	public function __construct(IDBConnection $db, Utils $utils) {
+		parent::__construct($db, 'ownnote');
+		$this->utils = $utils;
 	}
 
 
 	/**
-	 * @throws \OCP\AppFramework\Db\DoesNotExistException if not found
-	 * @throws \OCP\AppFramework\Db\MultipleObjectsReturnedException if more than one result
-	 * @return Vault[]
+	 * @param $note_id
+	 * @param null $user_id
+	 * @return OwnNote[] if not found
 	 */
-	public function find($vault_id, $user_id) {
-		$sql = 'SELECT * FROM `*PREFIX*passman_vaults` ' .
-			'WHERE `id`= ? and `user_id` = ?';
-		return $this->findEntities($sql, [$vault_id, $user_id]);
-	}
-	/**
-	 * @throws \OCP\AppFramework\Db\DoesNotExistException if not found
-	 * @throws \OCP\AppFramework\Db\MultipleObjectsReturnedException if more than one result
-	 * @return Vault
-	 */
-	public function findByGuid($vault_guid, $user_id) {
-		$sql = 'SELECT * FROM `*PREFIX*passman_vaults` ' .
-			'WHERE `guid`= ? and `user_id` = ?';
-		return $this->findEntity($sql, [$vault_guid, $user_id]);
-	}
-
-
-	/**
-	 * @throws \OCP\AppFramework\Db\DoesNotExistException if not found
-	 * @throws \OCP\AppFramework\Db\MultipleObjectsReturnedException if more than one result
-	 * @return Vault[]
-	 */
-	public function findVaultsFromUser($userId){
-		$sql = 'SELECT * FROM `*PREFIX*passman_vaults` ' .
-			'WHERE `user_id` = ? ';
-		$params = [$userId];
+	public function find($note_id, $user_id = null) {
+		$params = [$note_id];
+		$uidSql = '';
+		if($user_id){
+			$params[] = $user_id;
+			$uidSql = 'and n.uid = ?';
+		}
+		$sql = "SELECT n.id, n.name, n.grouping, n.shared, n.mtime, n.deleted, p.pid, GROUP_CONCAT(p.note SEPARATOR '') as note FROM *PREFIX*ownnote n INNER JOIN *PREFIX*ownnote_parts p ON n.id = p.id WHERE `id`= ? $uidSql and n.deleted = 0 GROUP BY p.id";
 		return $this->findEntities($sql, $params);
 	}
 
+
 	/**
-	 * Creates a vault
-	 * @param $vault_name
-	 * @param $userId
-	 * @return Vault
+	 * @throws \OCP\AppFramework\Db\DoesNotExistException if not found
+	 * @throws \OCP\AppFramework\Db\MultipleObjectsReturnedException if more than one result
+	 * @return OwnNote[]
 	 */
-	public function create($vault_name, $userId){
-		$vault = new Vault();
-		$vault->setName($vault_name);
-		$vault->setUserId($userId);
-		$vault->setGuid($this->utils->GUID());
-		$vault->setCreated($this->utils->getTime());
-		$vault->setLastAccess(0);
-		return parent::insert($vault);
+	public function findNotesFromUser($userId) {
+		$params = [$userId];
+		$sql = "SELECT n.uid, n.id, n.name, n.grouping, n.shared, n.mtime, n.deleted, p.pid, GROUP_CONCAT(p.note SEPARATOR '') as note FROM *PREFIX*ownnote n INNER JOIN *PREFIX*ownnote_parts p ON n.id = p.id WHERE `uid` = ? and n.deleted = 0 GROUP BY p.id";
+		$results = [];
+		foreach($this->execute($sql, $params)->fetchAll() as $item){
+			$note = new OwnNote();
+			$note->setId($item['id']);
+			$note->setName($item['name']);
+			$note->setGrouping($item['grouping']);
+			$note->setMtime($item['mtime']);
+			$note->setDeleted($item['deleted']);
+			$note->setNote($item['note']);
+			$note->setUid($item['uid']);
+			$results[] = $note;
+		}
+		return $results;
 	}
 
 	/**
-	 * Update last access time of a vault
-	 * @param $vault_id
-	 * @param $user_id
+	 * Creates a note
+	 *
+	 * @param OwnNote $note
+	 * @return OwnNote|Entity
+	 * @internal param $userId
 	 */
-	public function setLastAccess($vault_id, $user_id){
-		$vault = new Vault();
-		$vault->setId($vault_id);
-		$vault->setUserId($user_id);
-		$vault->setLastAccess(Utils::getTime());
-		$this->update($vault);
+	public function create($note) {
+		$parts = $this->utils->splitContent($note->getNote());
+		$note->setNote('');
+
+		/**
+		 * @var $note OwnNote
+		 */
+		$note = parent::insert($note);
+
+		foreach ($parts as $part) {
+			$this->createNotePart($note, $part);
+		}
+
+		$note->setNote(implode('', $parts));
+
+		return $note;
 	}
 
 	/**
-	 * Update vault
-	 * @param Vault $vault
+	 * Update note
+	 *
+	 * @param OwnNote $note
+	 * @return OwnNote|Entity
 	 */
-	public function update(Vault $vault){
-		return parent::update($vault);
+	public function updateNote($note) {
+		$parts = $this->utils->splitContent($note->getNote());
+		$this->deleteNoteParts($note);
+
+		foreach ($parts as $part) {
+			$this->createNotePart($note, $part);
+		}
+		$note->setNote('');
+		/**
+		 * @var $note OwnNote
+		 */
+		$note = parent::update($note);
+		$note->setNote(implode('', $parts));
+		return $note;
 	}
 
-	public function deleteVault(Vault $vault){
-		$this->delete($vault);
+	/**
+	 * @param OwnNote $note
+	 * @param $content
+	 */
+	public function createNotePart(OwnNote $note, $content) {
+		$sql = "INSERT INTO *PREFIX*_ownnote_parts VALUES (NULL, ?, ?);";
+		$this->execute($sql, array($note->getId(), $content));
+	}
+
+	/**
+	 * Delete the note parts
+	 *
+	 * @param OwnNote $note
+	 */
+	public function deleteNoteParts(OwnNote $note) {
+		$sql = 'DELETE FROM *PREFIX*_ownnote_parts where id = ?';
+		$this->execute($sql, array($note->getId()));
+	}
+
+	/**
+	 * @param OwnNote $note
+	 * @return bool
+	 */
+	public function deleteNote(OwnNote $note) {
+		$note->setDeleted(1);
+		$this->updateNote($note);
+		return true;
 	}
 }
