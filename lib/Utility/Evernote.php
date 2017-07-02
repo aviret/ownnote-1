@@ -35,7 +35,6 @@ class Evernote {
 	 */
 	public static function checkEvernote($folder, $file) {
 		$utils = new Utils();
-		$html = "";
 		if ($html = Filesystem::file_get_contents($folder . "/" . $file)) {
 			$DOM = new DOMDocument;
 			$DOM->loadHTML($html);
@@ -57,7 +56,6 @@ class Evernote {
 			}
 			if ($isEvernote) {
 				$items = $DOM->getElementsByTagName('img');
-				$isEvernote = false;
 				for ($i = 0; $i < $items->length; $i++) {
 					$item = $items->item($i);
 					if ($item->hasAttributes()) {

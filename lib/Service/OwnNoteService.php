@@ -102,7 +102,7 @@ class OwnNoteService {
 				$tmpfile = $FOLDER . "/[" . $group . "] " . $name . ".htm";
 			Filesystem::file_put_contents($tmpfile, $content);
 			if ($info = Filesystem::getFileInfo($tmpfile)) {
-				$mtime = $info['mtime'];
+				$note->setMtime($info['mtime']);
 			}
 		}
 
@@ -294,7 +294,7 @@ class OwnNoteService {
 			if (!Filesystem::is_dir($FOLDER)) {
 				if (!Filesystem::mkdir($FOLDER)) {
 					\OCP\Util::writeLog('ownnote', 'Could not create ownNote directory.', \OCP\Util::ERROR);
-					exit;
+					throw new \Exception("Error creating ownNote directory");
 				}
 			}
 			// Synchronize files to the database
@@ -302,7 +302,7 @@ class OwnNoteService {
 			if ($listing = Filesystem::opendir($FOLDER)) {
 				if (!$listing) {
 					\OCP\Util::writeLog('ownnote', 'Error listing directory.', \OCP\Util::ERROR);
-					exit;
+					throw new \Exception("Error listing dir");
 				}
 				while (($file = readdir($listing)) !== false) {
 					$tmpfile = $file;
@@ -338,7 +338,6 @@ class OwnNoteService {
 										// If it is in the DB, check if the filesystem file is newer than the DB
 										if ($result['mtime'] < $info['mtime']) {
 											// File is newer, this could happen if a user updates a file
-											$html = "";
 											$html = Filesystem::file_get_contents($FOLDER . "/" . $tmpfile);
 											$n = [
 												'id' => $result['id'],
@@ -352,7 +351,6 @@ class OwnNoteService {
 							}
 						if (!$fileindb) {
 							// If it's not in the DB, add it.
-							$html = "";
 							if ($html = Filesystem::file_get_contents($FOLDER . "/" . $tmpfile)) {
 							} else {
 								$html = "";

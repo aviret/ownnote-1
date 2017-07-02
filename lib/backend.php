@@ -425,7 +425,6 @@ class Backend {
 
 		$now = new DateTime();
 		$mtime = $now->getTimestamp();
-		$uid = \OC::$server->getUserSession()->getUser()->getUID();
 		$note = $this->getNote($nid);
 		$name = $note['name'];
 		$group = $note['group'];

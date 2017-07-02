@@ -55,7 +55,6 @@ class Ownnotev2ApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function index() {
-		$uid = \OC::$server->getUserSession()->getUser()->getUID();
 		$results = $this->noteService->getListing('', false);
 		return new JSONResponse($results);
 	}
@@ -64,7 +63,6 @@ class Ownnotev2ApiController extends ApiController {
 	* @NoCSRFRequired
 	*/
 	public function get($id) {
-		$uid = \OC::$server->getUserSession()->getUser()->getUID();
 		$results = $this->noteService->find($id);
 		if(!$results){
 			return new NotFoundJSONResponse();
