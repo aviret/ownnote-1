@@ -16,12 +16,10 @@ use \OCP\AppFramework\ApiController;
 use \OCP\AppFramework\Http\JSONResponse;
 use \OCP\AppFramework\Http\Response;
 use \OCP\AppFramework\Http;
-use \OCP\AppFramework\UserManager;
 use OCP\IConfig;
+use OCP\ILogger;
 use \OCP\IRequest;
 use \OCA\OwnNote\Lib\Backend;
-
-\OCP\App::checkAppEnabled('ownnote');
 
 
 class OwnnoteAjaxController extends ApiController {
@@ -29,10 +27,10 @@ class OwnnoteAjaxController extends ApiController {
 	private $backend;
 	private $config;
 
-	public function __construct($appName, IRequest $request, Manager $userManager, $logger, IConfig $config) {
+	public function __construct($appName, IRequest $request,ILogger $logger, IConfig $config) {
 		parent::__construct($appName, $request);
 		$this->config = $config;
-		$this->backend = new Backend($userManager, $config);
+		$this->backend = new Backend($config);
 	}
 
 	/**

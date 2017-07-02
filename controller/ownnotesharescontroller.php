@@ -14,8 +14,6 @@ namespace OCA\OwnNote\Controller;
 use \OCP\AppFramework\ApiController;
 use \OCP\IRequest;
 
-\OCP\App::checkAppEnabled('ownnote');
-
 
 
 class OwnnoteSharesController extends ApiController {

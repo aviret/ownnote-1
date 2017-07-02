@@ -13,7 +13,7 @@ use OCP\IL10N;
 
 class Backend {
 
-	private $userManager;
+
 	private $db;
 	private $config;
 
@@ -23,8 +23,7 @@ class Backend {
 	 * @param $userManager \OC\User\Manager
 	 * @param IConfig $config
 	 */
-	public function __construct($userManager, IConfig $config) {
-		$this->userManager = $userManager;
+	public function __construct(IConfig $config) {
 		$this->db = \OC::$server->getDatabaseConnection();
 		$this->config = $config;
 	}
