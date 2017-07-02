@@ -33,7 +33,11 @@ Todo:
 - [ ] Switch to a AngularJS frontend        
 - [ ] Import from [Notes](https://github.com/nextcloud/notes) app
 - [ ] Encrypted notes? 
-- [ ] Test saving of files
+- [ ] Test saving of files   
+   
+## Chat
+There is a [Gitter](https://gitter.im/nextnotes/Lobby) chatroom available.
+   
 ## Installation
 - Place this app in **nextcloud/apps/ownnote** (Rename the extracted ZIP to "ownnote" or you will receive errors)
 - Note: *custom_csp_policy* changes are no longer required
