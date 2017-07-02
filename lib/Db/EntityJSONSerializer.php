@@ -21,6 +21,13 @@
  *
  */
 
-namespace OCA\OwnNote\AppInfo;
-
-
+namespace OCA\OwnNote\Db;
+trait EntityJSONSerializer {
+	public function serializeFields($properties) {
+		$result = [];
+		foreach($properties as $property) {
+			$result[$property] = $this->$property;
+		}
+		return $result;
+	}
+}
